@@ -1,0 +1,188 @@
+// Halo — data model
+// AI assistant app for digital and social media influencers
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Auth (NextAuth) ----
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+
+  accounts Account[]
+  sessions Session[]
+  creator  Creator?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Creator {
+  id        String   @id @default(cuid())
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  handle    String
+  niche     String
+  bio       String?
+  avatar    String?
+  theme     String   @default("bubblegum")
+  onboarded Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  posts        Post[]
+  deals        Deal[]
+  events       Event[]
+  metrics      Metric[]
+  chatMessages ChatMessage[]
+  connections  Connection[]
+}
+
+// A connected social platform (mock/sandbox for now)
+model Connection {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  platform    String // instagram | tiktok | youtube | x
+  handle      String?
+  status      String   @default("connected") // connected | disconnected
+  followers   Int      @default(0)
+  connectedAt DateTime @default(now())
+
+  @@unique([creatorId, platform])
+}
+
+// A piece of content: idea, draft, scheduled or published post
+model Post {
+  id          String    @id @default(cuid())
+  creatorId   String
+  creator     Creator   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  title       String
+  caption     String
+  hashtags    String    @default("")
+  platform    String // instagram | tiktok | youtube | x | linkedin
+  status      String    @default("idea") // idea | draft | scheduled | published
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  dealId      String?
+  deal        Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// A brand / PR partnership
+model Deal {
+  id           String   @id @default(cuid())
+  creatorId    String
+  creator      Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  brand        String
+  contactName  String?
+  contactEmail String?
+  status       String   @default("pitched") // pitched | negotiating | active | delivered | paid | archived
+  value        Float    @default(0)
+  currency     String   @default("USD")
+  startDate    DateTime?
+  dueDate      DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  deliverables Deliverable[]
+  posts        Post[]
+  events       Event[]
+}
+
+// A required output within a deal (e.g. "3 reels + 1 story")
+model Deliverable {
+  id        String    @id @default(cuid())
+  dealId    String
+  deal      Deal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  title     String
+  type      String // post | reel | story | video | ugc | blog | appearance
+  quantity  Int       @default(1)
+  status    String    @default("todo") // todo | in_progress | submitted | approved
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Calendar events: shoots, meetings, launches, brand appearances
+model Event {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  dealId    String?
+  deal      Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  title     String
+  type      String   @default("general") // shoot | meeting | launch | deadline | appearance | general
+  location  String?
+  startAt   DateTime
+  endAt     DateTime?
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+// Daily analytics snapshot per creator
+model Metric {
+  id          String   @id @default(cuid())
+  creatorId   String
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  date        DateTime
+  platform    String
+  followers   Int      @default(0)
+  reach       Int      @default(0)
+  impressions Int      @default(0)
+  engagements Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  creatorId String
+  creator   Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  role      String // user | assistant
+  content   String
+  createdAt DateTime @default(now())
+}
