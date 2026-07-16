@@ -15,6 +15,11 @@ import {
   Plus,
 } from "lucide-react";
 import HaloPortrait from "@/components/HaloPortrait";
+import HeroStage from "@/components/HeroStage";
+import HaloCursor from "@/components/HaloCursor";
+import IntroLoader from "@/components/IntroLoader";
+import ScrollReveal from "@/components/ScrollReveal";
+import Magnetic from "@/components/Magnetic";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 22 },
@@ -23,13 +28,6 @@ const fadeUp = {
 
 const marquee = [
   "Capture", "Schedule", "Analyze", "Negotiate", "Invoice", "Remember fans", "Hit goals", "Repeat",
-];
-
-const heroBubbles = [
-  { side: "left", top: "6%", delay: 0, from: "Halo", text: "morning ✦ I drafted 3 hooks for the reel — pick a fave?" },
-  { side: "right", top: "28%", delay: 1.6, small: true, text: "👀 ok show me" },
-  { side: "left", top: "50%", delay: 3.2, from: "Halo", text: "Notion replied — they'll do $4.2k. I countered at $5k." },
-  { side: "right", top: "72%", delay: 4.8, small: true, text: "you're a wizard" },
 ];
 
 const moments = [
@@ -64,6 +62,10 @@ const faqs = [
 export default function Landing() {
   return (
     <div className="relative overflow-hidden">
+      <IntroLoader />
+      <HaloCursor />
+      <div className="grain" />
+
       {/* Nav */}
       <nav className="lp-nav">
         <div className="shell flex items-center justify-between py-4">
@@ -97,10 +99,12 @@ export default function Landing() {
             negotiate brand deals, chase invoices, and remember every superfan's name — so you
             can just make stuff. We start at "hi."
           </p>
-          <div className="fade-up d4 mt-7 flex flex-wrap gap-3">
-            <Link href="/signup" className="btn-primary text-base">
-              Hire Halo — free <ArrowRight size={16} />
-            </Link>
+          <div className="fade-up d4 mt-7 flex flex-wrap items-center gap-3">
+            <Magnetic>
+              <Link href="/signup" className="btn-primary text-base">
+                Hire Halo — free <ArrowRight size={16} />
+              </Link>
+            </Magnetic>
             <Link href="/login" className="btn-ghost text-base">
               <Play size={14} /> Sign in
             </Link>
@@ -110,25 +114,8 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Hero visual */}
-        <div className="relative mx-auto aspect-square w-full max-w-md">
-          <div className="blob" style={{ inset: "-8% -8% auto auto", width: "58%", height: "58%", background: "var(--c1c)", animation: "blobFloat 14s ease-in-out infinite" }} />
-          <div className="blob" style={{ inset: "auto -8% -8% auto", width: "50%", height: "50%", background: "var(--c4c)", animation: "blobFloat 18s ease-in-out infinite reverse" }} />
-          <div className="blob" style={{ inset: "18% auto auto -8%", width: "48%", height: "48%", background: "var(--c3c)", animation: "blobFloat 16s ease-in-out infinite" }} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <HaloPortrait size={240} showTag />
-          </div>
-          {heroBubbles.map((b, i) => (
-            <div
-              key={i}
-              className={`chat-bubble ${b.side} ${b.small ? "small" : ""}`}
-              style={{ top: b.top, animationDelay: `${b.delay}s` }}
-            >
-              {b.from && <div className="bubble-from">{b.from}</div>}
-              <div className="bubble-text">{b.text}</div>
-            </div>
-          ))}
-        </div>
+        {/* Hero visual — gaze-follow + parallax */}
+        <HeroStage />
       </section>
 
       {/* Marquee */}
@@ -139,6 +126,14 @@ export default function Landing() {
           ))}
         </div>
       </div>
+
+      {/* Manifesto — scroll reveal */}
+      <section className="shell py-24 md:py-32">
+        <ScrollReveal
+          className="mx-auto max-w-4xl text-center text-3xl font-medium leading-snug tracking-tight md:text-5xl"
+          text="You didn't become a creator to chase invoices, juggle ten apps, and forget to post. Halo takes the busywork, so you can take the spotlight."
+        />
+      </section>
 
       {/* Meet Halo */}
       <MeetHalo />

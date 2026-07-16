@@ -5,7 +5,13 @@
  * Warm face, flowing hair, a glowing halo ring, blinking eyes, and sparkles.
  * Colors pull from the active theme via CSS variables.
  */
-export default function HaloFace({ className = "" }: { className?: string }) {
+export default function HaloFace({
+  className = "",
+  eye = { x: 0, y: 0 },
+}: {
+  className?: string;
+  eye?: { x: number; y: number };
+}) {
   return (
     <svg
       className={`halo-face-svg ${className}`}
@@ -65,12 +71,20 @@ export default function HaloFace({ className = "" }: { className?: string }) {
       <ellipse cx="83" cy="140" rx="11" ry="7" fill="url(#cheek)" />
       <ellipse cx="137" cy="140" rx="11" ry="7" fill="url(#cheek)" />
 
-      {/* eyes */}
+      {/* eyes (whites) */}
+      <ellipse cx="93" cy="124" rx="5" ry="6.4" fill="#fff" opacity="0.9" />
+      <ellipse cx="127" cy="124" rx="5" ry="6.4" fill="#fff" opacity="0.9" />
+      {/* eyes (pupils) — the group blinks; the inner group tracks the cursor */}
       <g className="eyes">
-        <ellipse cx="93" cy="124" rx="3.6" ry="5.2" fill="#241826" />
-        <ellipse cx="127" cy="124" rx="3.6" ry="5.2" fill="#241826" />
-        <circle cx="94.2" cy="122" r="1.2" fill="#fff" />
-        <circle cx="128.2" cy="122" r="1.2" fill="#fff" />
+        <g
+          className="pupils"
+          style={{ transform: `translate(${eye.x}px, ${eye.y}px)`, transition: "transform 0.12s ease-out" }}
+        >
+          <ellipse cx="93" cy="124" rx="3.4" ry="4.8" fill="#241826" />
+          <ellipse cx="127" cy="124" rx="3.4" ry="4.8" fill="#241826" />
+          <circle cx="94.4" cy="122" r="1.1" fill="#fff" />
+          <circle cx="128.4" cy="122" r="1.1" fill="#fff" />
+        </g>
       </g>
 
       {/* brows */}

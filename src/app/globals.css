@@ -126,6 +126,52 @@ body {
 
 @keyframes spinSlow { to { transform: rotate(360deg); } }
 
+/* ============ Living halo cursor ============ */
+@media (pointer: fine) {
+  body.halo-cursor-on,
+  body.halo-cursor-on a,
+  body.halo-cursor-on button,
+  body.halo-cursor-on [data-cursor] {
+    cursor: none;
+  }
+}
+.halo-cur-dot {
+  position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c1c);
+  transition: opacity .2s, width .2s, height .2s;
+  will-change: transform;
+}
+.halo-cur-dot.is-hover { opacity: 0; }
+.halo-cur-ring {
+  position: fixed; top: 0; left: 0; z-index: 9998; pointer-events: none;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1.5px solid rgb(var(--c1) / 0.7);
+  display: flex; align-items: center; justify-content: center;
+  transition: width .22s cubic-bezier(.2,.8,.2,1), height .22s cubic-bezier(.2,.8,.2,1),
+    background .22s, border-color .22s;
+  will-change: transform;
+}
+.halo-cur-ring .halo-cur-spark {
+  font-size: 14px; color: var(--c1c); opacity: 0;
+  transform: scale(.4) rotate(-40deg);
+  transition: opacity .22s, transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.halo-cur-ring.is-hover {
+  width: 52px; height: 52px;
+  background: rgb(var(--c1) / 0.1);
+  border-color: rgb(var(--c1) / 0.55);
+}
+.halo-cur-ring.is-hover .halo-cur-spark { opacity: 1; transform: scale(1) rotate(0deg); }
+.halo-cur-ring.is-down { width: 26px; height: 26px; }
+
+/* ============ Film grain overlay ============ */
+.grain {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
 /* ============ Shared component classes ============ */
 @layer components {
   .card {

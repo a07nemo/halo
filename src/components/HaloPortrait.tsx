@@ -10,10 +10,12 @@ export default function HaloPortrait({
   size = 120,
   showTag = false,
   glow = true,
+  eye,
 }: {
   size?: number;
   showTag?: boolean;
   glow?: boolean;
+  eye?: { x: number; y: number };
 }) {
   return (
     <div
@@ -22,7 +24,7 @@ export default function HaloPortrait({
     >
       {glow && <div className="halo-glow" />}
       <div style={{ width: "88%", height: "88%", borderRadius: "50%", overflow: "hidden" }}>
-        <HaloFace />
+        <HaloFace eye={eye} />
       </div>
       {showTag && (
         <div
