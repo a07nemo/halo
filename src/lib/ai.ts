@@ -1,38 +1,69 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+// Halo can be powered by either xAI (Grok) or Anthropic (Claude).
+// Set XAI_API_KEY to use Grok, or ANTHROPIC_API_KEY to use Claude.
+// With neither, Halo uses built-in smart mock responses so it always works.
+const XAI_MODEL = process.env.XAI_MODEL || "grok-4.5";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
 
-export function aiEnabled() {
+function xaiEnabled() {
+  return Boolean(process.env.XAI_API_KEY);
+}
+function anthropicEnabled() {
   return Boolean(process.env.ANTHROPIC_API_KEY);
 }
-
-let client: Anthropic | null = null;
-function getClient() {
-  if (!client) client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  return client;
+export function aiEnabled() {
+  return xaiEnabled() || anthropicEnabled();
 }
 
+type Msg = { role: "user" | "assistant"; content: string };
+
 /**
- * Core text generation. Uses Claude if ANTHROPIC_API_KEY is set,
- * otherwise falls back to smart local mock generators so the app
- * is fully functional out of the box.
+ * Unified chat call. Prefers Grok (xAI, OpenAI-compatible) when XAI_API_KEY is
+ * set, otherwise Claude. Returns "" on failure so callers fall back to mocks.
  */
-async function complete(system: string, user: string, maxTokens = 1024): Promise<string> {
-  if (!aiEnabled()) return "";
-  const res = await getClient().messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    system,
-    messages: [{ role: "user", content: user }],
-  });
-  const block = res.content.find((b) => b.type === "text");
-  return block && block.type === "text" ? block.text : "";
+async function llm(system: string, messages: Msg[], maxTokens = 800): Promise<string> {
+  try {
+    if (xaiEnabled()) {
+      const res = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.XAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: XAI_MODEL,
+          max_tokens: maxTokens,
+          messages: [{ role: "system", content: system }, ...messages],
+        }),
+      });
+      if (!res.ok) return "";
+      const data = await res.json();
+      return data?.choices?.[0]?.message?.content ?? "";
+    }
+
+    if (anthropicEnabled()) {
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const res = await client.messages.create({
+        model: ANTHROPIC_MODEL,
+        max_tokens: maxTokens,
+        system,
+        messages: messages as Anthropic.MessageParam[],
+      });
+      const block = res.content.find((b) => b.type === "text");
+      return block && block.type === "text" ? block.text : "";
+    }
+  } catch {
+    return "";
+  }
+  return "";
 }
 
 const HALO_PERSONA =
-  "You are Halo, an AI assistant for social media influencers and content creators. " +
-  "You are sharp, upbeat, and practical. You understand platforms (Instagram, TikTok, YouTube, X), " +
-  "brand deals, PR, and growth. Keep advice concrete and creator-friendly.";
+  "You are Halo, an AI manager for social media influencers and content creators. " +
+  "You are sharp, warm, a little sassy, and deeply practical. You understand platforms " +
+  "(Instagram, TikTok, YouTube, X), brand deals, PR, invoicing, and growth. Keep advice " +
+  "concrete and creator-friendly.";
 
 // ---------- Content ideas ----------
 export interface IdeaInput {
@@ -44,11 +75,17 @@ export interface IdeaInput {
 export async function generateIdeas(input: IdeaInput): Promise<string[]> {
   const count = input.count ?? 5;
   if (aiEnabled()) {
-    const text = await complete(
+    const text = await llm(
       HALO_PERSONA,
-      `Generate ${count} scroll-stopping ${input.platform} content ideas for a creator in the "${input.niche}" niche` +
-        (input.topic ? ` about "${input.topic}"` : "") +
-        `. Return each idea on its own line, no numbering, no extra commentary.`,
+      [
+        {
+          role: "user",
+          content:
+            `Generate ${count} scroll-stopping ${input.platform} content ideas for a creator in the "${input.niche}" niche` +
+            (input.topic ? ` about "${input.topic}"` : "") +
+            `. Return each idea on its own line, no numbering, no extra commentary.`,
+        },
+      ],
       700
     );
     const lines = text
@@ -75,21 +112,26 @@ export interface CaptionResult {
 export async function generateCaption(input: CaptionInput): Promise<CaptionResult> {
   const tone = input.tone || "authentic and warm";
   if (aiEnabled()) {
-    const text = await complete(
+    const text = await llm(
       HALO_PERSONA,
-      `Write a ${input.platform} caption for a "${input.niche}" creator about "${input.topic}". ` +
-        `Tone: ${tone}.` +
-        (input.brand ? ` This is a paid partnership with ${input.brand} — include a natural, compliant #ad disclosure.` : "") +
-        ` Then on a new line starting with "HASHTAGS:" list 5-8 relevant hashtags. ` +
-        `Format exactly as: caption text, blank line, then HASHTAGS: #a #b #c`,
+      [
+        {
+          role: "user",
+          content:
+            `Write a ${input.platform} caption for a "${input.niche}" creator about "${input.topic}". ` +
+            `Tone: ${tone}.` +
+            (input.brand
+              ? ` This is a paid partnership with ${input.brand} — include a natural, compliant #ad disclosure.`
+              : "") +
+            ` Then on a new line starting with "HASHTAGS:" list 5-8 relevant hashtags. ` +
+            `Format exactly as: caption text, blank line, then HASHTAGS: #a #b #c`,
+        },
+      ],
       500
     );
     const [capPart, tagPart] = text.split(/HASHTAGS:/i);
     if (capPart) {
-      return {
-        caption: capPart.trim(),
-        hashtags: (tagPart || "").trim(),
-      };
+      return { caption: capPart.trim(), hashtags: (tagPart || "").trim() };
     }
   }
   return mockCaption(input);
@@ -115,17 +157,12 @@ export async function chat(
       `- Active brand deals: ${ctx.activeDeals}\n- Upcoming events: ${ctx.upcomingEvents}\n` +
       `- Total followers: ${ctx.followerTotal.toLocaleString()}\n` +
       `Use this context when relevant. Be concise.`;
-    const res = await getClient().messages.create({
-      model: MODEL,
-      max_tokens: 800,
+    const reply = await llm(
       system,
-      messages: history.map((m) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: m.content,
-      })) as Anthropic.MessageParam[],
-    });
-    const block = res.content.find((b) => b.type === "text");
-    if (block && block.type === "text") return block.text;
+      history.map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: m.content })),
+      800
+    );
+    if (reply) return reply;
   }
   return mockChat(history, ctx);
 }
@@ -146,7 +183,6 @@ function mockIdeas(input: IdeaInput, count: number): string[] {
     `POV: your first week trying ${t}`,
     `I asked 100 people about ${t} — the answers surprised me`,
   ];
-  // deterministic-ish shuffle
   return templates.slice(0, count);
 }
 
@@ -171,18 +207,18 @@ function mockChat(history: { role: string; content: string }[], ctx: ChatContext
       `1. A myth-busting reel — high saves, great for reach.\n` +
       `2. A behind-the-scenes of one of your ${ctx.activeDeals} active deals.\n` +
       `3. A "what I'd tell my past self" story post.\n\n` +
-      `Want me to draft captions for any of these? (Add an ANTHROPIC_API_KEY to unlock full AI replies.)`
+      `Want me to draft captions for any of these? (Add an XAI_API_KEY or ANTHROPIC_API_KEY to unlock full AI replies.)`
     );
   }
   if (last.includes("deal") || last.includes("brand") || last.includes("pr")) {
     return (
       `You've got ${ctx.activeDeals} active brand deals right now. My quick take: keep deliverables front-loaded so ` +
       `you're not scrambling near due dates, and always confirm usage rights in writing. Want a checklist for your next pitch? ` +
-      `(Full AI answers unlock with an ANTHROPIC_API_KEY.)`
+      `(Full AI answers unlock with an XAI_API_KEY or ANTHROPIC_API_KEY.)`
     );
   }
   return (
     `Hi ${ctx.creatorName}! I'm running in demo mode right now, but I can still help you organize content, deals, and your calendar. ` +
-    `Add an ANTHROPIC_API_KEY in your .env to unlock full Claude-powered replies. What would you like to work on?`
+    `Add an XAI_API_KEY (Grok) or ANTHROPIC_API_KEY (Claude) to unlock full AI replies. What would you like to work on?`
   );
 }
